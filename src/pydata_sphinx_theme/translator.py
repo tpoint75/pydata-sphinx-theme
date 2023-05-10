@@ -10,8 +10,6 @@ from sphinx.application import Sphinx
 from sphinx.ext.autosummary import autosummary_table
 from sphinx.util import logging
 
-from .utils import traverse_or_findall
-
 logger = logging.getLogger(__name__)
 
 
@@ -100,16 +98,16 @@ class BootstrapHTML5TranslatorMixin:
         """
         try:
             # We are only interested in internal anchor references
-            internal, anchorname = node["internal"], node["anchorname"]
-            if internal and anchorname.startswith("#") and "." in anchorname:
+            internal, refid = node["internal"], node["refuri"]
+            if internal and refid.startswith("#") and "." in refid:
                 # Get the root node of the current document
                 document = self.builder.env.get_doctree(self.builder.current_docname)
 
                 # Get the target anchor ID
-                target_id = anchorname.lstrip("#")
+                first,target_id = refid.split("#")
                 sanitized_id = target_id.replace(".", "_")
                 # Update the node `href`
-                node["refuri"] = node["anchorname"] = "#" + sanitized_id
+                node["refuri"] = first + "#" + sanitized_id
 
                 # Define a search condition to find the target node by ID
                 def find_target(search_id, node):
@@ -120,22 +118,16 @@ class BootstrapHTML5TranslatorMixin:
                     )
 
                 # NOTE: Replacing with underscores creates the possibility for
-                # conflicting references. Here we check for these and warn the
+                # conflicting references. We should check for these and warn the
                 # user if any are found.
-                if any(
-                    traverse_or_findall(
-                        document, condition=partial(find_target, sanitized_id)
-                    )
-                ):
+                if any(document.traverse(condition=partial(find_target, sanitized_id))):
                     logger.warning(
                         f'Sanitized reference "{sanitized_id}" for "{target_id}" '
                         "conflicts with an existing reference!"
                     )
 
                 # Find nodes with the given ID (there should only be one)
-                targets = traverse_or_findall(
-                    document, condition=partial(find_target, target_id)
-                )
+                targets = document.traverse(condition=partial(find_target, target_id))
                 # Replace dots with underscores in the target node ID
                 for target in targets:
                     # NOTE: By itself, modifying the target `ids` here seems to be
@@ -147,6 +139,139 @@ class BootstrapHTML5TranslatorMixin:
                     ]
         except KeyError:
             pass
+            
+        try:
+            refid = node["refuri"]
+            if ".html#" in refid:
+                # Get the root node of the current document
+                document = self.builder.env.get_doctree(self.builder.current_docname)
+
+                # Get the target anchor ID
+                first,target_id = refid.split("#")
+                sanitized_id = target_id.replace(".", "_")
+                # Update the node `href`
+                node["refuri"] = first + "#" + sanitized_id
+
+                # Define a search condition to find the target node by ID
+                def find_target(search_id, node):
+                    return (
+                        isinstance(node, Element)
+                        and ("ids" in node)
+                        and (search_id in node["ids"])
+                    )
+
+                # NOTE: Replacing with underscores creates the possibility for
+                # conflicting references. We should check for these and warn the
+                # user if any are found.
+                if any(document.traverse(condition=partial(find_target, sanitized_id))):
+                    logger.warning(
+                        f'Sanitized reference "{sanitized_id}" for "{target_id}" '
+                        "conflicts with an existing reference!"
+                    )
+
+                # Find nodes with the given ID (there should only be one)
+                targets = document.traverse(condition=partial(find_target, target_id))
+                # Replace dots with underscores in the target node ID
+                for target in targets:
+                    # NOTE: By itself, modifying the target `ids` here seems to be
+                    # insufficient, however it helps ensure that the reference `refuri`
+                    # and target `ids` remain consistent during the build process
+                    target["ids"] = [
+                        sanitized_id if id_ == target_id else id_
+                        for id_ in target["ids"]
+                    ]
+        
+        except KeyError:
+            pass
+        
+        try:
+            refid = node["refuri"]
+            if "." in refid and refid.startswith("#") and not "html" in refid:
+                # Get the root node of the current document
+                document = self.builder.env.get_doctree(self.builder.current_docname)
+
+                # Get the target anchor ID
+                target_id = refid.lstrip("#")
+                sanitized_id = target_id.replace(".", "_")
+                # Update the node `href`
+                node["refuri"] = "#" + sanitized_id
+
+                # Define a search condition to find the target node by ID
+                def find_target(search_id, node):
+                    return (
+                        isinstance(node, Element)
+                        and ("ids" in node)
+                        and (search_id in node["ids"])
+                    )
+
+                # NOTE: Replacing with underscores creates the possibility for
+                # conflicting references. We should check for these and warn the
+                # user if any are found.
+                if any(document.traverse(condition=partial(find_target, sanitized_id))):
+                    logger.warning(
+                        f'Sanitized reference "{sanitized_id}" for "{target_id}" '
+                        "conflicts with an existing reference!"
+                    )
+
+                # Find nodes with the given ID (there should only be one)
+                targets = document.traverse(condition=partial(find_target, target_id))
+                # Replace dots with underscores in the target node ID
+                for target in targets:
+                    # NOTE: By itself, modifying the target `ids` here seems to be
+                    # insufficient, however it helps ensure that the reference `refuri`
+                    # and target `ids` remain consistent during the build process
+                    target["ids"] = [
+                        sanitized_id if id_ == target_id else id_
+                        for id_ in target["ids"]
+                    ]
+        
+        except KeyError:
+            pass
+        
+        try:
+            refid = node["refid"]
+            if "." in refid:
+                # Get the root node of the current document
+                document = self.builder.env.get_doctree(self.builder.current_docname)
+
+                # Get the target anchor ID
+                target_id = refid
+                sanitized_id = target_id.replace(".", "_")
+                # Update the node `href`
+                node["refuri"] = "#" + sanitized_id
+
+                # Define a search condition to find the target node by ID
+                def find_target(search_id, node):
+                    return (
+                        isinstance(node, Element)
+                        and ("ids" in node)
+                        and (search_id in node["ids"])
+                    )
+
+                # NOTE: Replacing with underscores creates the possibility for
+                # conflicting references. We should check for these and warn the
+                # user if any are found.
+                if any(document.traverse(condition=partial(find_target, sanitized_id))):
+                    logger.warning(
+                        f'Sanitized reference "{sanitized_id}" for "{target_id}" '
+                        "conflicts with an existing reference!"
+                    )
+
+                # Find nodes with the given ID (there should only be one)
+                targets = document.traverse(condition=partial(find_target, target_id))
+                # Replace dots with underscores in the target node ID
+                for target in targets:
+                    # NOTE: By itself, modifying the target `ids` here seems to be
+                    # insufficient, however it helps ensure that the reference `refuri`
+                    # and target `ids` remain consistent during the build process
+                    target["ids"] = [
+                        sanitized_id if id_ == target_id else id_
+                        for id_ in target["ids"]
+                    ]
+        
+        except KeyError:
+            pass
+        
         super().visit_reference(node)
 
 
